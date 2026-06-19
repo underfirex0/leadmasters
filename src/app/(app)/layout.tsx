@@ -29,9 +29,23 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     }
   } catch {}
 
+  // Fetch blocked features (admin overrides with enabled=false) so the nav can hide them.
+  // Admins are never gated. Fails open (empty array) if the table isn't migrated yet.
+  let blockedFeatures: string[] = []
+  if (!profile.is_admin) {
+    try {
+      const { data: access } = await supabaseAdmin
+        .from('user_feature_access')
+        .select('feature')
+        .eq('user_id', session.user.id)
+        .eq('enabled', false)
+      blockedFeatures = (access ?? []).map(a => a.feature)
+    } catch {}
+  }
+
   return (
     <div className="min-h-screen bg-surface-1">
-      <Navbar profile={profile} />
+      <Navbar profile={profile} blockedFeatures={blockedFeatures} />
       <main className="max-w-[1400px] mx-auto px-5 py-8">
         {children}
       </main>

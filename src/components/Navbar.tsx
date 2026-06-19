@@ -7,7 +7,10 @@ import { useState, useEffect, useRef } from 'react'
 import type { Profile } from '@/types'
 import { cn } from '@/lib/utils'
 
-interface NavbarProps { profile: Profile & { plan_id?: string; is_admin?: boolean } }
+interface NavbarProps {
+  profile: Profile & { plan_id?: string; is_admin?: boolean }
+  blockedFeatures?: string[]
+}
 
 const PLAN_BADGES: Record<string, { label: string; color: string }> = {
   decouverte: { label: '🌱', color: 'bg-surface-2 text-ink-3 border-[rgba(0,0,0,0.08)]' },
@@ -17,7 +20,7 @@ const PLAN_BADGES: Record<string, { label: string; color: string }> = {
   entreprise: { label: '🏢 Ent.',     color: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
 }
 
-export default function Navbar({ profile }: NavbarProps) {
+export default function Navbar({ profile, blockedFeatures = [] }: NavbarProps) {
   const pathname = usePathname()
   const router   = useRouter()
   const [open, setOpen] = useState(false)
@@ -39,14 +42,18 @@ export default function Navbar({ profile }: NavbarProps) {
     router.push('/'); router.refresh()
   }
 
-  const navLinks = [
-    { href: '/dashboard',  label: 'Dashboard',  icon: LayoutDashboard },
-    { href: '/search',     label: 'Recherche',  icon: Search },
-    { href: '/databases',  label: 'Recherches', icon: Database },
-    { href: '/crm',        label: 'CRM',        icon: Users2 },
-    { href: '/upload',     label: 'Import',     icon: Upload },
-    { href: '/meetings',   label: 'Meetings',   icon: Calendar },
+  const is = (feature: string) => !blockedFeatures.includes(feature)
+
+  const allNavLinks = [
+    { href: '/dashboard',  label: 'Dashboard',  icon: LayoutDashboard, feature: null            },
+    { href: '/search',     label: 'Recherche',  icon: Search,          feature: 'search'        },
+    { href: '/databases',  label: 'Recherches', icon: Database,        feature: 'search'        },
+    { href: '/crm',        label: 'CRM',        icon: Users2,          feature: 'crm'           },
+    { href: '/upload',     label: 'Import',     icon: Upload,          feature: 'data_upload'   },
+    { href: '/meetings',   label: 'Meetings',   icon: Calendar,        feature: 'meetmaster'    },
   ]
+  const navLinks = allNavLinks.filter(l => !l.feature || is(l.feature))
+  const meetmasterBlocked = blockedFeatures.includes('meetmaster')
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/')
   const planId = profile.plan_id ?? 'decouverte'
   const planBadge = PLAN_BADGES[planId] ?? PLAN_BADGES.decouverte
@@ -72,16 +79,18 @@ export default function Navbar({ profile }: NavbarProps) {
               <span className="hidden sm:block">{label}</span>
             </Link>
           ))}
-          <Link href="/meetmaster"
-            className={cn(
-              'flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] text-[13px] font-semibold transition-all duration-150',
-              isActive('/meetmaster') || isActive('/master')
-                ? 'bg-gold-50 text-gold-700 border border-gold-100'
-                : 'text-gold-600 hover:bg-gold-50'
-            )}>
-            <Crown className="w-3.5 h-3.5" />
-            <span className="hidden sm:block">MeetMaster</span>
-          </Link>
+          {!meetmasterBlocked && (
+            <Link href="/meetmaster"
+              className={cn(
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] text-[13px] font-semibold transition-all duration-150',
+                isActive('/meetmaster') || isActive('/master')
+                  ? 'bg-gold-50 text-gold-700 border border-gold-100'
+                  : 'text-gold-600 hover:bg-gold-50'
+              )}>
+              <Crown className="w-3.5 h-3.5" />
+              <span className="hidden sm:block">MeetMaster</span>
+            </Link>
+          )}
         </nav>
 
         <div className="flex items-center gap-2 shrink-0">
@@ -116,13 +125,13 @@ export default function Navbar({ profile }: NavbarProps) {
                 </div>
                 <div className="py-1">
                   {[
-                    { href: '/account',     label: 'Mon compte',      icon: Settings },
-                    { href: '/account/plan',label: 'Changer de plan', icon: Crown },
-                    { href: '/master',      label: 'Profil Master',   icon: Crown },
-                    { href: '/meetings',    label: 'Mes meetings',    icon: Calendar },
-                    { href: '/crm',         label: 'Mon CRM',         icon: Users2 },
-                    { href: '/wallet',      label: 'Mes crédits',     icon: Wallet },
-                  ].map(({ href, label, icon: Icon }) => (
+                    { href: '/account',     label: 'Mon compte',      icon: Settings,  feature: null         },
+                    { href: '/account/plan',label: 'Changer de plan', icon: Crown,     feature: null         },
+                    { href: '/master',      label: 'Profil Master',   icon: Crown,     feature: 'meetmaster' },
+                    { href: '/meetings',    label: 'Mes meetings',    icon: Calendar,  feature: 'meetmaster' },
+                    { href: '/crm',         label: 'Mon CRM',         icon: Users2,    feature: 'crm'        },
+                    { href: '/wallet',      label: 'Mes crédits',     icon: Wallet,    feature: null         },
+                  ].filter(item => !item.feature || is(item.feature)).map(({ href, label, icon: Icon }) => (
                     <Link key={href} href={href}
                       className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-ink-2 hover:bg-surface-1 hover:text-ink-1 transition-colors"
                       onClick={() => setOpen(false)}>

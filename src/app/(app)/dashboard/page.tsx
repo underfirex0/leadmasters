@@ -1,9 +1,11 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { Search, Wallet, TrendingUp, Clock, ChevronRight, Building2, Crown, ArrowRight, Sparkles } from 'lucide-react'
 import { formatDate, formatNumber } from '@/lib/utils'
 import type { Query } from '@/types'
+import BlockedFeatureBanner from '@/components/BlockedFeatureBanner'
 
 export default async function DashboardPage() {
   const supabase = createClient()
@@ -19,6 +21,9 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-8 max-w-[1200px] mx-auto animate-reveal-in">
+      <Suspense fallback={null}>
+        <BlockedFeatureBanner />
+      </Suspense>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-2">
         <div>
