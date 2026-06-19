@@ -31,12 +31,16 @@ export async function POST(req: Request) {
 
     if (error) throw error
 
-    // Log activity
-    await supabaseAdmin.from('activity_logs').insert({
-      user_id: session.user.id,
-      action:  'data_upload_request',
-      details: { request_id: data.id, file_name },
-    }).catch(() => {}) // non-blocking
+    // Log activity (non-blocking — never let a logging failure break the upload)
+    try {
+      await supabaseAdmin.from('activity_logs').insert({
+        user_id: session.user.id,
+        action:  'data_upload_request',
+        details: { request_id: data.id, file_name },
+      })
+    } catch {
+      // Table may not exist or insert failed — ignore, this is non-critical
+    }
 
     return NextResponse.json({ id: data.id }, { status: 201 })
   } catch (err: unknown) {

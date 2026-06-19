@@ -4,6 +4,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Search, LayoutDashboard, Wallet, LogOut, ChevronDown, Users2, Crown, Calendar, Target, Settings, Database, Upload, Menu, X } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import type { Profile } from '@/types'
 import { cn } from '@/lib/utils'
 
@@ -25,10 +26,12 @@ export default function Navbar({ profile, blockedFeatures = [] }: NavbarProps) {
   const router   = useRouter()
   const [open, setOpen] = useState(false)        // user dropdown
   const [mobileOpen, setMobileOpen] = useState(false) // mobile nav drawer
+  const [mounted, setMounted] = useState(false)  // portal needs document to exist
   const [credits, setCredits] = useState(profile.credit_balance)
   const dropRef  = useRef<HTMLDivElement>(null)
   const supabase = createClient()
 
+  useEffect(() => { setMounted(true) }, [])
   useEffect(() => { setCredits(profile.credit_balance) }, [profile.credit_balance])
   useEffect(() => {
     const fn = (e: MouseEvent) => {
@@ -76,6 +79,7 @@ export default function Navbar({ profile, blockedFeatures = [] }: NavbarProps) {
   ].filter(item => !item.feature || is(item.feature))
 
   return (
+    <>
     <header className="bg-white/95 backdrop-blur-xl border-b border-[rgba(0,0,0,0.06)] sticky top-0 z-50">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-5 h-[54px] flex items-center justify-between gap-2 sm:gap-4">
 
@@ -178,82 +182,90 @@ export default function Navbar({ profile, blockedFeatures = [] }: NavbarProps) {
           </div>
         </div>
       </div>
+    </header>
 
-      {/* ── Mobile nav drawer ── */}
-      {mobileOpen && (
-        <>
-          <div
-            className="fixed inset-0 bg-black/40 z-[60] lg:hidden animate-fade-in"
-            onClick={() => setMobileOpen(false)}
-            aria-hidden="true"
-          />
-          <div className="fixed top-0 left-0 bottom-0 w-[78vw] max-w-[300px] bg-white z-[70] lg:hidden flex flex-col shadow-floating animate-slide-in-left">
-            <div className="flex items-center justify-between p-4 border-b border-[rgba(0,0,0,0.06)] shrink-0">
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 bg-brand-600 rounded-[7px] flex items-center justify-center">
-                  <Target className="w-3 h-3 text-white" />
-                </div>
-                <span className="font-bold text-ink-1 text-[14px] tracking-tight">LeadMaster</span>
+    {/* ── Mobile nav drawer — rendered via portal directly into <body> ──
+         This is REQUIRED: the header above uses backdrop-blur-xl, and per the
+         CSS spec, backdrop-filter creates a new containing block for any
+         position:fixed descendants. If the drawer stayed inside <header>,
+         "fixed top-0 bottom-0" would resolve against the 54px header box
+         instead of the viewport, crushing all drawer content into a sliver.
+         Rendering through a portal to document.body sidesteps that entirely. */}
+    {mounted && mobileOpen && createPortal(
+      <>
+        <div
+          className="fixed inset-0 bg-black/40 z-[60] lg:hidden animate-fade-in"
+          onClick={() => setMobileOpen(false)}
+          aria-hidden="true"
+        />
+        <div className="fixed top-0 left-0 bottom-0 w-[78vw] max-w-[300px] bg-white z-[70] lg:hidden flex flex-col shadow-floating animate-slide-in-left">
+          <div className="flex items-center justify-between p-4 border-b border-[rgba(0,0,0,0.06)] shrink-0">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 bg-brand-600 rounded-[7px] flex items-center justify-center">
+                <Target className="w-3 h-3 text-white" />
               </div>
-              <button onClick={() => setMobileOpen(false)} className="p-2 rounded-lg hover:bg-surface-2 transition-colors" aria-label="Fermer">
-                <X className="w-4 h-4 text-ink-3" />
-              </button>
+              <span className="font-bold text-ink-1 text-[14px] tracking-tight">LeadMaster</span>
             </div>
+            <button onClick={() => setMobileOpen(false)} className="p-2 rounded-lg hover:bg-surface-2 transition-colors" aria-label="Fermer">
+              <X className="w-4 h-4 text-ink-3" />
+            </button>
+          </div>
 
-            <nav className="flex-1 overflow-y-auto p-3 space-y-0.5">
-              {navLinks.map(({ href, label, icon: Icon }) => (
+          <nav className="flex-1 overflow-y-auto p-3 space-y-0.5">
+            {navLinks.map(({ href, label, icon: Icon }) => (
+              <Link key={href} href={href}
+                className={cn(
+                  'flex items-center gap-3 px-3 py-3 rounded-xl text-[14px] font-medium transition-colors',
+                  isActive(href) ? 'bg-brand-50 text-brand-700' : 'text-ink-2 hover:bg-surface-1'
+                )}>
+                <Icon className="w-4 h-4 shrink-0" />{label}
+              </Link>
+            ))}
+            {!meetmasterBlocked && (
+              <Link href="/meetmaster"
+                className={cn(
+                  'flex items-center gap-3 px-3 py-3 rounded-xl text-[14px] font-semibold transition-colors',
+                  isActive('/meetmaster') || isActive('/master') ? 'bg-gold-50 text-gold-700' : 'text-gold-600 hover:bg-gold-50'
+                )}>
+                <Crown className="w-4 h-4 shrink-0" /> MeetMaster
+              </Link>
+            )}
+
+            <div className="border-t border-[rgba(0,0,0,0.06)] my-2 pt-2">
+              {accountLinks.filter(l => !navLinks.find(n => n.href === l.href) && l.href !== '/meetmaster').map(({ href, label, icon: Icon }) => (
                 <Link key={href} href={href}
-                  className={cn(
-                    'flex items-center gap-3 px-3 py-3 rounded-xl text-[14px] font-medium transition-colors',
-                    isActive(href) ? 'bg-brand-50 text-brand-700' : 'text-ink-2 hover:bg-surface-1'
-                  )}>
-                  <Icon className="w-4 h-4 shrink-0" />{label}
+                  className="flex items-center gap-3 px-3 py-3 rounded-xl text-[14px] text-ink-2 hover:bg-surface-1 transition-colors">
+                  <Icon className="w-4 h-4 text-ink-4 shrink-0" />{label}
                 </Link>
               ))}
-              {!meetmasterBlocked && (
-                <Link href="/meetmaster"
-                  className={cn(
-                    'flex items-center gap-3 px-3 py-3 rounded-xl text-[14px] font-semibold transition-colors',
-                    isActive('/meetmaster') || isActive('/master') ? 'bg-gold-50 text-gold-700' : 'text-gold-600 hover:bg-gold-50'
-                  )}>
-                  <Crown className="w-4 h-4 shrink-0" /> MeetMaster
+              {profile.is_admin && (
+                <Link href="/admin" className="flex items-center gap-3 px-3 py-3 rounded-xl text-[14px] text-brand-600 hover:bg-brand-50 transition-colors">
+                  <Target className="w-4 h-4 shrink-0" /> Admin panel
                 </Link>
               )}
-
-              <div className="border-t border-[rgba(0,0,0,0.06)] my-2 pt-2">
-                {accountLinks.filter(l => !navLinks.find(n => n.href === l.href) && l.href !== '/meetmaster').map(({ href, label, icon: Icon }) => (
-                  <Link key={href} href={href}
-                    className="flex items-center gap-3 px-3 py-3 rounded-xl text-[14px] text-ink-2 hover:bg-surface-1 transition-colors">
-                    <Icon className="w-4 h-4 text-ink-4 shrink-0" />{label}
-                  </Link>
-                ))}
-                {profile.is_admin && (
-                  <Link href="/admin" className="flex items-center gap-3 px-3 py-3 rounded-xl text-[14px] text-brand-600 hover:bg-brand-50 transition-colors">
-                    <Target className="w-4 h-4 shrink-0" /> Admin panel
-                  </Link>
-                )}
-              </div>
-            </nav>
-
-            <div className="p-4 border-t border-[rgba(0,0,0,0.06)] shrink-0 space-y-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 bg-brand-100 rounded-full flex items-center justify-center shrink-0">
-                  <span className="text-brand-700 font-bold text-[12px]">{(profile.full_name || profile.email || 'U')[0].toUpperCase()}</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[13px] font-semibold text-ink-1 truncate">{profile.full_name || 'Utilisateur'}</p>
-                  <p className="text-[11px] text-ink-4 truncate">{profile.email}</p>
-                </div>
-                <span className={cn('badge border text-[10px] px-1.5 py-0.5 shrink-0', planBadge.color)}>{planBadge.label}</span>
-              </div>
-              <button onClick={signOut}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-semibold text-red-500 bg-red-50 hover:bg-red-100 transition-colors">
-                <LogOut className="w-4 h-4" /> Se déconnecter
-              </button>
             </div>
+          </nav>
+
+          <div className="p-4 border-t border-[rgba(0,0,0,0.06)] shrink-0 space-y-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 bg-brand-100 rounded-full flex items-center justify-center shrink-0">
+                <span className="text-brand-700 font-bold text-[12px]">{(profile.full_name || profile.email || 'U')[0].toUpperCase()}</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-semibold text-ink-1 truncate">{profile.full_name || 'Utilisateur'}</p>
+                <p className="text-[11px] text-ink-4 truncate">{profile.email}</p>
+              </div>
+              <span className={cn('badge border text-[10px] px-1.5 py-0.5 shrink-0', planBadge.color)}>{planBadge.label}</span>
+            </div>
+            <button onClick={signOut}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-semibold text-red-500 bg-red-50 hover:bg-red-100 transition-colors">
+              <LogOut className="w-4 h-4" /> Se déconnecter
+            </button>
           </div>
-        </>
-      )}
-    </header>
+        </div>
+      </>,
+      document.body
+    )}
+    </>
   )
 }
