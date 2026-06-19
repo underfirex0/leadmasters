@@ -36,10 +36,12 @@ CREATE TRIGGER data_upload_requests_updated_at
 ALTER TABLE data_upload_requests ENABLE ROW LEVEL SECURITY;
 
 -- Users see only their own requests
+DROP POLICY IF EXISTS "users_view_own_requests" ON data_upload_requests;
 CREATE POLICY "users_view_own_requests" ON data_upload_requests
   FOR SELECT USING (auth.uid() = user_id);
 
 -- Users create their own requests
+DROP POLICY IF EXISTS "users_insert_own_requests" ON data_upload_requests;
 CREATE POLICY "users_insert_own_requests" ON data_upload_requests
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
@@ -74,6 +76,7 @@ CREATE TRIGGER user_feature_access_updated_at
 ALTER TABLE user_feature_access ENABLE ROW LEVEL SECURITY;
 
 -- Users can read their own feature access (app uses this to show/hide UI)
+DROP POLICY IF EXISTS "users_view_own_feature_access" ON user_feature_access;
 CREATE POLICY "users_view_own_feature_access" ON user_feature_access
   FOR SELECT USING (auth.uid() = user_id);
 
@@ -81,10 +84,21 @@ CREATE POLICY "users_view_own_feature_access" ON user_feature_access
 
 
 -- ── 3. Supabase Storage Bucket ──────────────────────────────
--- Create a bucket named "data-uploads" (PRIVATE) in the Supabase dashboard,
--- then run these policies:
+-- This creates the bucket directly via SQL — no dashboard step needed.
+-- Safe to re-run (ON CONFLICT DO NOTHING).
+
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'data-uploads',
+  'data-uploads',
+  false,                          -- private bucket
+  20971520,                       -- 20 MB limit
+  ARRAY['text/csv', 'text/plain', 'application/vnd.ms-excel']
+)
+ON CONFLICT (id) DO NOTHING;
 
 -- Users can upload to their own folder: data-uploads/{user_id}/...
+DROP POLICY IF EXISTS "upload_own_files" ON storage.objects;
 CREATE POLICY "upload_own_files" ON storage.objects
   FOR INSERT WITH CHECK (
     bucket_id = 'data-uploads'
@@ -92,6 +106,7 @@ CREATE POLICY "upload_own_files" ON storage.objects
   );
 
 -- Users can list/view their own files
+DROP POLICY IF EXISTS "view_own_files" ON storage.objects;
 CREATE POLICY "view_own_files" ON storage.objects
   FOR SELECT USING (
     bucket_id = 'data-uploads'

@@ -251,6 +251,7 @@ export default function AdminUsersPage() {
 
       {/* Table */}
       <div className="bg-white border border-[rgba(0,0,0,0.07)] rounded-[18px] shadow-card overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="data-table w-full">
           <thead>
             <tr>
@@ -319,6 +320,7 @@ export default function AdminUsersPage() {
             })}
           </tbody>
         </table>
+        </div>
 
         {/* Pagination */}
         {total > 20 && (

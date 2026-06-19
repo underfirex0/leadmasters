@@ -251,7 +251,7 @@ export default function MeetMasterPage() {
       </div>
 
       {/* ── How it works ── */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
           { n: '01', icon: Search,   title: 'Choisissez',   desc: 'Filtrez par rôle, secteur et ville', color: 'text-indigo-500 bg-indigo-50' },
           { n: '02', icon: Calendar, title: 'Proposez',     desc: '3 créneaux · Réponse sous 24h',      color: 'text-amber-500 bg-amber-50' },

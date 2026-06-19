@@ -102,7 +102,7 @@ export default function AdminDataRequestsPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {Object.entries(STATUS).map(([key, cfg]) => (
           <div key={key} className="bg-white rounded-xl border border-[rgba(0,0,0,0.07)] px-4 py-3">
             <div className="flex items-center gap-2 mb-1">

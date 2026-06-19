@@ -128,7 +128,7 @@ export default function MasterDashboard() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
           { icon: Clock,      label: 'Demandes en attente', value: pending.length,   color: 'text-amber-600 bg-amber-50' },
           { icon: Calendar,   label: 'À venir confirmés',   value: upcoming.length,  color: 'text-emerald-600 bg-emerald-50' },
@@ -300,7 +300,7 @@ export default function MasterDashboard() {
       {/* Tab: Earnings */}
       {tab === 'earnings' && (
         <div className="card p-6 space-y-5">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 text-center">
               <p className="text-3xl font-bold text-emerald-700 font-mono">{formatNumber(earnings)} MAD</p>
               <p className="text-sm text-emerald-600 mt-1">Total gagné</p>

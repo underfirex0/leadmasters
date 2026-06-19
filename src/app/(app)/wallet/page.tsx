@@ -34,7 +34,7 @@ export default async function WalletPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
           { label: 'Solde actuel',   value: formatNumber(profile?.credit_balance ?? 0), note: 'crédits disponibles', pos: true  },
           { label: 'Total reçus',    value: `+${formatNumber(received)}`,               note: 'crédits reçus',       pos: true  },

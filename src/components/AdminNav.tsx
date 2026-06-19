@@ -24,9 +24,10 @@ interface AdminNavProps {
   email: string
   pendingCount?: number
   importsCount?: number
+  onNavigate?: () => void
 }
 
-export default function AdminNav({ name, email, pendingCount = 0, importsCount = 0 }: AdminNavProps) {
+export default function AdminNav({ name, email, pendingCount = 0, importsCount = 0, onNavigate }: AdminNavProps) {
   const pathname = usePathname()
 
   const isActive = (href: string, exact?: boolean) =>
@@ -54,7 +55,7 @@ export default function AdminNav({ name, email, pendingCount = 0, importsCount =
           const active = isActive(href, exact)
           const badgeCount = badge === 'pending' ? pendingCount : badge === 'imports' ? importsCount : 0
           return (
-            <Link key={href} href={href}
+            <Link key={href} href={href} onClick={onNavigate}
               className={cn(
                 'flex items-center justify-between px-3 py-2.5 rounded-[9px] text-[13px] font-medium transition-all group',
                 active ? 'bg-brand-50 text-brand-700' : 'text-ink-3 hover:text-ink-1 hover:bg-surface-2'
@@ -64,7 +65,7 @@ export default function AdminNav({ name, email, pendingCount = 0, importsCount =
                 {label}
               </div>
               {badgeCount > 0 && (
-                <span className="w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                <span className="w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shrink-0">
                   {badgeCount > 9 ? '9+' : badgeCount}
                 </span>
               )}
@@ -84,7 +85,7 @@ export default function AdminNav({ name, email, pendingCount = 0, importsCount =
             <p className="text-[10px] text-ink-4 truncate">{email}</p>
           </div>
         </div>
-        <Link href="/dashboard"
+        <Link href="/dashboard" onClick={onNavigate}
           className="flex items-center gap-2 text-[12px] text-ink-4 hover:text-ink-1 transition-colors">
           <LogOut className="w-3.5 h-3.5" /> Retour à l&apos;app
         </Link>

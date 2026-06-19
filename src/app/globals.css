@@ -480,3 +480,20 @@ html {
 @media (prefers-reduced-motion: reduce) {
   .reveal-item { opacity: 1 !important; transform: none !important; transition: none !important; }
 }
+
+/* ── Mobile drawer animations ─────────────────────────────── */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.animate-fade-in { animation: fade-in 0.2s ease-out; }
+
+@keyframes slide-in-left {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
+.animate-slide-in-left { animation: slide-in-left 0.25s cubic-bezier(0.22,1,0.36,1); }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in, .animate-slide-in-left { animation: none; }
+}

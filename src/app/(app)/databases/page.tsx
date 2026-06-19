@@ -180,7 +180,7 @@ export default function DatabasesPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
           { label: 'Recherches total',     val: total,                   icon: Database,   color: 'text-brand-600 bg-brand-50' },
           { label: 'Entreprises trouvées', val: stats.total_results,    icon: Building2,  color: 'text-violet-600 bg-violet-50' },

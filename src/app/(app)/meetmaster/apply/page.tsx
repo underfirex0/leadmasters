@@ -118,7 +118,7 @@ export default function ApplyMasterPage() {
       <div className="card p-6 space-y-6">
         <h2 className="font-bold text-slate-900" style={{fontFamily:'Syne,sans-serif'}}>Votre profil professionnel</h2>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="col-span-2">
             <label className="label">Nom complet <span className="text-red-400">*</span></label>
             <input type="text" value={form.full_name} onChange={e => set('full_name', e.target.value)}

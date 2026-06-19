@@ -75,7 +75,7 @@ export default function AdminDataPage() {
       )}
 
       {stats && (
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Top sectors */}
           <div className="bg-white border border-[rgba(0,0,0,0.07)] rounded-[18px] p-5 shadow-card">
             <p className="font-bold text-[14px] text-ink-1 mb-4">Top secteurs</p>
@@ -149,6 +149,7 @@ export default function AdminDataPage() {
             <div className="flex items-center justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-brand-500" /></div>
           ) : (
             <>
+              <div className="overflow-x-auto">
               <table className="data-table w-full">
                 <thead>
                   <tr>
@@ -177,6 +178,7 @@ export default function AdminDataPage() {
                   ))}
                 </tbody>
               </table>
+              </div>
 
               {total > 25 && (
                 <div className="px-6 py-4 border-t border-[rgba(0,0,0,0.05)] flex items-center justify-between">

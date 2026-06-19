@@ -264,6 +264,7 @@ export default function ResultsPage() {
         </div>
       ) : (
         <div className="card overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200">
@@ -477,6 +478,7 @@ export default function ResultsPage() {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

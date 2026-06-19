@@ -195,7 +195,7 @@ export default function AdminSubscriptionsPage() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
           { label: 'En attente', count: summary.pending, color: summary.pending > 0 ? 'bg-red-50 border-red-200' : 'bg-white border-[rgba(0,0,0,0.07)]', text: summary.pending > 0 ? 'text-red-700' : 'text-ink-1', filter: 'pending' },
           { label: 'Actifs',     count: summary.active,  color: 'bg-white border-[rgba(0,0,0,0.07)]', text: 'text-emerald-700', filter: 'active' },
@@ -241,6 +241,7 @@ export default function AdminSubscriptionsPage() {
             <p className="text-[14px] text-ink-3">Aucun abonnement{statusFilter ? ` (${statusFilter})` : ''}</p>
           </div>
         ) : (
+          <div className="overflow-x-auto">
           <table className="data-table w-full">
             <thead>
               <tr>
@@ -307,6 +308,7 @@ export default function AdminSubscriptionsPage() {
               })}
             </tbody>
           </table>
+          </div>
         )}
 
         {/* Pagination */}

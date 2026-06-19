@@ -83,6 +83,7 @@ export default function AdminAnalyticsPage() {
         {top_users.length === 0 ? (
           <div className="py-12 text-center text-[13px] text-ink-3">Pas encore de données.</div>
         ) : (
+          <div className="overflow-x-auto">
           <table className="data-table w-full">
             <thead>
               <tr>
@@ -106,6 +107,7 @@ export default function AdminAnalyticsPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 

@@ -66,7 +66,7 @@ export default function AdminInvoicesPage() {
       </div>
 
       {/* Summary */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
           { label: 'En attente', amount: summary.pending_total, count: `${summary.pending_count} facture${summary.pending_count > 1 ? 's' : ''}`, color: summary.pending_count > 0 ? 'bg-amber-50 border-amber-200' : 'bg-white border-[rgba(0,0,0,0.07)]', text: 'text-amber-700' },
           { label: 'Payées (total)', amount: summary.paid_total, count: '', color: 'bg-white border-[rgba(0,0,0,0.07)]', text: 'text-emerald-700' },
@@ -104,6 +104,7 @@ export default function AdminInvoicesPage() {
             <p className="text-[14px] text-ink-3">Aucune facture</p>
           </div>
         ) : (
+          <div className="overflow-x-auto">
           <table className="data-table w-full">
             <thead>
               <tr>
@@ -177,6 +178,7 @@ export default function AdminInvoicesPage() {
               })}
             </tbody>
           </table>
+          </div>
         )}
 
         {total > 25 && (
