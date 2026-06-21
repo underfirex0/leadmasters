@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import * as XLSX from 'xlsx'
 import { Upload, FileText, X, CheckCircle2, Clock, AlertCircle, ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
@@ -40,6 +41,21 @@ function parseCSVPreview(text: string): { headers: string[]; rows: ParsedRow[]; 
   return { headers, rows, totalLines: lines.length - 1 }
 }
 
+function parseExcelPreview(buf: ArrayBuffer): { headers: string[]; rows: ParsedRow[]; totalLines: number } {
+  const wb = XLSX.read(buf, { type: 'array' })
+  const sheet = wb.Sheets[wb.SheetNames[0]]
+  const json = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, raw: false, defval: '' })
+  if (json.length < 1) return { headers: [], rows: [], totalLines: 0 }
+  const headers = (json[0] as string[]).map(h => String(h ?? '').trim()).filter(Boolean)
+  const dataLines = json.slice(1).filter(r => (r as string[]).some(v => String(v ?? '').trim() !== ''))
+  const rows: ParsedRow[] = dataLines.slice(0, 5).map(line => {
+    const row: ParsedRow = {}
+    headers.forEach((h, j) => { row[h] = String((line as string[])[j] ?? '').trim() })
+    return row
+  })
+  return { headers, rows, totalLines: dataLines.length }
+}
+
 export default function UploadPage() {
   const supabase = createClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -75,8 +91,10 @@ export default function UploadPage() {
   }
 
   const handleFile = useCallback(async (f: File) => {
-    if (!f.name.endsWith('.csv') && !f.name.endsWith('.txt')) {
-      setError('Seuls les fichiers CSV sont acceptés.')
+    const isCSV   = /\.(csv|txt)$/i.test(f.name)
+    const isExcel = /\.(xlsx|xls)$/i.test(f.name)
+    if (!isCSV && !isExcel) {
+      setError('Seuls les fichiers CSV et Excel (.xlsx, .xls) sont acceptés.')
       return
     }
     if (f.size > 20 * 1024 * 1024) {
@@ -85,8 +103,18 @@ export default function UploadPage() {
     }
     setError(null)
     setFile(f)
-    const text = await f.text()
-    setPreview(parseCSVPreview(text))
+    try {
+      if (isExcel) {
+        const buf = await f.arrayBuffer()
+        setPreview(parseExcelPreview(buf))
+      } else {
+        const text = await f.text()
+        setPreview(parseCSVPreview(text))
+      }
+    } catch {
+      setError('Impossible de lire ce fichier — vérifiez qu\'il n\'est pas corrompu.')
+      setFile(null)
+    }
   }, [])
 
   const onDrop = useCallback((e: React.DragEvent) => {
@@ -151,7 +179,7 @@ export default function UploadPage() {
           Importer mes données CRM
         </h1>
         <p className="text-[14px] text-ink-3 leading-relaxed">
-          Uploadez votre fichier CSV. Notre équipe le traitera, mappera vos colonnes et injectera les données directement dans votre CRM sous 24–48h.
+          Uploadez votre fichier CSV ou Excel. Notre équipe le traitera, mappera vos colonnes et injectera les données directement dans votre CRM sous 24–48h.
         </p>
       </div>
 
@@ -191,10 +219,10 @@ export default function UploadPage() {
                   <Upload className={cn('w-6 h-6 transition-colors', dragging ? 'text-brand-600' : 'text-ink-4')} />
                 </div>
                 <p className="text-[15px] font-semibold text-ink-1 mb-1">
-                  {dragging ? 'Déposez votre fichier ici' : 'Glissez votre CSV ou cliquez pour parcourir'}
+                  {dragging ? 'Déposez votre fichier ici' : 'Glissez votre fichier ou cliquez pour parcourir'}
                 </p>
-                <p className="text-[12px] text-ink-4">Format CSV uniquement · Max 20 Mo</p>
-                <input ref={fileInputRef} type="file" accept=".csv,.txt" className="hidden"
+                <p className="text-[12px] text-ink-4">CSV ou Excel (.xlsx, .xls) · Max 20 Mo</p>
+                <input ref={fileInputRef} type="file" accept=".csv,.txt,.xlsx,.xls" className="hidden"
                   onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
               </div>
             ) : (
@@ -290,7 +318,7 @@ export default function UploadPage() {
       {/* How it works */}
       <div className="grid sm:grid-cols-3 gap-4">
         {[
-          { n:'1', title:'Uploadez votre CSV',       body:'Glissez votre fichier. Décrivez vos colonnes si les noms sont différents des nôtres.' },
+          { n:'1', title:'Uploadez votre fichier',    body:'CSV ou Excel. Décrivez vos colonnes si les noms sont différents des nôtres.' },
           { n:'2', title:'On traite votre demande',  body:'Notre équipe mappe vos colonnes manuellement et vérifie la qualité des données sous 24–48h.' },
           { n:'3', title:'Vos données dans le CRM',  body:'Les leads apparaissent directement dans votre pipeline CRM, prêts à être traités.' },
         ].map(({ n, title, body }) => (

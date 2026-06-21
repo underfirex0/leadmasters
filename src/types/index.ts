@@ -129,19 +129,23 @@ export type CallOutcome =
 export type CRMLead = {
   id: string
   user_id: string
-  business_id: string
+  business_id: string | null
   query_id: string | null
   status: CRMStatus
   priority: CRMPriority
   notes: string | null
   next_action_at: string | null
   last_contacted_at: string | null
-  last_called_at: string | null
   status_changed_at: string | null
   callback_date: string | null
   callback_note: string | null
   created_at: string
   updated_at: string
+  // Import-sourced lead fields (admin-injected client data)
+  source?: 'search' | 'import'
+  import_request_id?: string | null
+  is_manufacturer?: boolean | null
+  custom_fields?: Record<string, string> | null
   // Joined
   business?: MaskedBusiness
   call_logs?: CRMCallLog[]

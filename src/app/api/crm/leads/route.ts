@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import type { CRMStatus } from '@/types'
 
-// Fields that are FREE — always visible
+// Fields that are FREE — always visible (search-sourced leads only)
 const FREE_FIELDS = new Set(['name','sector','city','region','country','legal_form','forme_juridique','status'])
 
 export async function GET(request: NextRequest) {
@@ -28,17 +28,24 @@ export async function GET(request: NextRequest) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     if (!leads?.length) return NextResponse.json({ leads: [], counts: {} })
 
-    // Fetch businesses
-    const bizIds = [...new Set(leads.map(l => l.business_id))]
-    const { data: businesses } = await supabaseAdmin
-      .from('businesses').select('*').in('id', bizIds)
+    // Split by source — search-sourced leads go through the existing
+    // business-join + credit-unlock masking pipeline, completely unchanged.
+    // Import-sourced leads already belong to the client (they uploaded the
+    // data themselves) so everything is shown immediately, no masking.
+    const searchLeads = leads.filter(l => l.source !== 'import' && l.business_id)
+    const importLeads = leads.filter(l => l.source === 'import')
 
-    // Fetch what the user has actually unlocked
-    const { data: unlockEvents } = await supabaseAdmin
-      .from('unlock_events').select('business_id, field')
-      .eq('user_id', user.id).in('business_id', bizIds)
+    // ── Search-sourced leads: existing masking logic, untouched ──
+    const bizIds = [...new Set(searchLeads.map(l => l.business_id))]
+    const { data: businesses } = bizIds.length
+      ? await supabaseAdmin.from('businesses').select('*').in('id', bizIds)
+      : { data: [] as Record<string, unknown>[] }
 
-    // Build unlock map: bizId → { field: value }
+    const { data: unlockEvents } = bizIds.length
+      ? await supabaseAdmin.from('unlock_events').select('business_id, field')
+          .eq('user_id', user.id).in('business_id', bizIds)
+      : { data: [] as { business_id: string; field: string }[] }
+
     const unlockMap: Record<string, Record<string, string | null>> = {}
     for (const evt of unlockEvents ?? []) {
       if (!unlockMap[evt.business_id]) unlockMap[evt.business_id] = {}
@@ -49,16 +56,13 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Build enriched leads — STRICT masking
-    const enriched = leads.map(lead => {
+    const enrichedSearch = searchLeads.map(lead => {
       const biz = businesses?.find(b => b.id === lead.business_id)
       const unlocked = unlockMap[lead.business_id] ?? {}
 
       if (!biz) return { ...lead, business: null }
 
       const raw = biz as Record<string, unknown>
-
-      // Get all fields from business, only expose if free OR unlocked
       const allFields = Object.keys(raw)
       const maskedFields: Record<string, unknown> = {}
 
@@ -68,22 +72,46 @@ export async function GET(request: NextRequest) {
         } else if (field in unlocked) {
           maskedFields[field] = unlocked[field]
         } else {
-          // Paid field not unlocked → null
           maskedFields[field] = null
         }
       }
 
       return {
         ...lead,
-        business: {
-          ...maskedFields,
-          unlocked,      // Pass the unlocked map so UI can show "Non débloqué"
-          _unlocked_fields: Object.keys(unlocked), // For UI checks
-        }
+        business: { ...maskedFields, unlocked, _unlocked_fields: Object.keys(unlocked) },
       }
     })
 
-    // Status counts
+    // ── Import-sourced leads: normalize to the SAME shape as `business`
+    // so the frontend table/detail rendering works identically, just
+    // with everything always visible (no locked fields, no unlock cost). ──
+    const enrichedImport = importLeads.map(lead => ({
+      ...lead,
+      business: {
+        id: null,
+        name:            lead.company_name,
+        phone:           lead.phone,
+        email:           lead.email,
+        website:         lead.website,
+        address:         null,
+        city:            lead.city,
+        country:         lead.country ?? 'N/A',
+        sector:          lead.sector,
+        dirigeant_name:  lead.contact_name,
+        dirigeant_phone: null,
+        dirigeant_email: null,
+        effectif_label:  null,
+        revenue_label:   null,
+        legal_form:      null,
+        unlocked: {},
+        _unlocked_fields: [],
+      },
+    }))
+
+    const enriched = [...enrichedSearch, ...enrichedImport]
+      .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+
+    // Status counts (across ALL leads, both sources)
     const { data: allLeads } = await supabaseAdmin
       .from('crm_leads').select('status').eq('user_id', user.id)
     const counts: Record<string, number> = {}
@@ -106,7 +134,7 @@ export async function POST(request: NextRequest) {
     if (!businessIds?.length) return NextResponse.json({ error: 'businessIds requis' }, { status: 400 })
 
     const records = businessIds.map((bid: string) => ({
-      user_id: user.id, business_id: bid,
+      user_id: user.id, business_id: bid, source: 'search',
       query_id: queryId || null, status: 'to_call',
     }))
 

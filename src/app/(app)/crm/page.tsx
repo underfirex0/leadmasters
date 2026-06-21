@@ -7,7 +7,8 @@ import {
   Loader2, Trash2, RefreshCw, UserRound, Mail,
   Globe, MapPin, Users, TrendingUp, Building2,
   CalendarClock, AlertTriangle, RotateCcw, Lock,
-  Flag, Calendar, Bell, AlertCircle, Zap, Activity
+  Flag, Calendar, Bell, AlertCircle, Zap, Activity,
+  Factory, Upload as UploadIcon, Tag
 } from 'lucide-react'
 import { cn, formatDate, formatDateShort } from '@/lib/utils'
 import { useToast } from '@/components/Toast'
@@ -105,6 +106,9 @@ export default function CRMPage() {
   const [callbackNote, setCallbackNote]     = useState('')
   const [pendingStatus, setPendingStatus]   = useState<string | null>(null)
   const [unlocking, setUnlocking]           = useState<Record<string, string>>({})
+  const [sourceFilter, setSourceFilter]     = useState<'all' | 'search' | 'import'>('all')
+  const [countryFilter, setCountryFilter]   = useState<string>('all')
+  const [manufacturerFilter, setManufacturerFilter] = useState<'all' | 'yes' | 'no'>('all')
 
   // Close dropdown on Escape
   useEffect(() => {
@@ -114,8 +118,7 @@ export default function CRMPage() {
     return () => window.removeEventListener('keydown', close)
   }, [statusDropdown])
 
-  const fetchLeads = useCallback(async () => {
-    setLoading(true)
+  const refreshLeadsQuietly = useCallback(async () => {
     try {
       const isCallbacksTab = activeTab === 'callbacks_due'
       const url = isCallbacksTab
@@ -124,17 +127,20 @@ export default function CRMPage() {
       const res  = await fetch(url)
       const data = await res.json()
       let ls = data.leads ?? []
-
       if (isCallbacksTab) {
-        // Only leads with overdue/today callbacks
         const today = new Date(); today.setHours(23,59,59,999)
         ls = ls.filter((l: CRMLead) => l.callback_date && new Date(l.callback_date) <= today)
       }
-
       setLeads(ls)
       setCounts(data.counts ?? {})
-    } finally { setLoading(false) }
+    } catch { /* keep existing state on transient network errors */ }
   }, [activeTab])
+
+  const fetchLeads = useCallback(async () => {
+    setLoading(true)
+    await refreshLeadsQuietly()
+    setLoading(false)
+  }, [refreshLeadsQuietly])
 
   useEffect(() => { fetchLeads() }, [fetchLeads])
 
@@ -148,10 +154,26 @@ export default function CRMPage() {
   const allCallbacksDue = Object.values(counts).reduce((s, v) => s, 0) // placeholder
 
   const totalLeads    = Object.values(counts).reduce((s, v) => s + v, 0)
+  const hasImportedLeads = leads.some(l => (l as unknown as { source?: string }).source === 'import')
+  const availableCountries = [...new Set(
+    leads
+      .map(l => (l.business as Record<string, unknown> | null)?.country as string | undefined)
+      .filter((c): c is string => Boolean(c) && c !== 'N/A')
+  )].sort()
+
   const filteredLeads = leads.filter(l => {
+    const leadSource = (l as unknown as { source?: string }).source ?? 'search'
+    if (sourceFilter !== 'all' && leadSource !== sourceFilter) return false
+
+    const biz = l.business as Record<string, unknown> | null
+    if (countryFilter !== 'all' && (biz?.country as string) !== countryFilter) return false
+
+    const isManufacturer = (l as unknown as { is_manufacturer?: boolean | null }).is_manufacturer
+    if (manufacturerFilter === 'yes' && isManufacturer !== true) return false
+    if (manufacturerFilter === 'no' && isManufacturer !== false) return false
+
     if (!search) return true
     const q = search.toLowerCase()
-    const biz = l.business as Record<string, unknown> | null
     return (biz?.name as string || '').toLowerCase().includes(q) ||
       (biz?.city as string || '').toLowerCase().includes(q) ||
       (biz?.sector as string || '').toLowerCase().includes(q)
@@ -169,11 +191,12 @@ export default function CRMPage() {
       body: JSON.stringify({ status: newStatus }),
     })
     if (res.ok) {
-      setLeads(prev => prev.map(l => l.id === leadId
-        ? { ...l, status: newStatus, status_changed_at: new Date().toISOString() } : l
-      ))
+      await refreshLeadsQuietly()
       toast.success(`Statut → ${STATUS_CONFIG[newStatus].label}`)
-    } else toast.error('Erreur')
+    } else {
+      const d = await res.json().catch(() => ({}))
+      toast.error(d.error || 'Erreur lors de la mise à jour du statut')
+    }
   }
 
   async function confirmCallback() {
@@ -185,12 +208,12 @@ export default function CRMPage() {
       body: JSON.stringify({ status: newStatus, callback_date: new Date(callbackDate).toISOString(), callback_note: callbackNote }),
     })
     if (res.ok) {
-      setLeads(prev => prev.map(l => l.id === leadId
-        ? { ...l, status: newStatus, callback_date: new Date(callbackDate).toISOString(), callback_note: callbackNote, status_changed_at: new Date().toISOString() }
-        : l
-      ))
+      await refreshLeadsQuietly()
       toast.success('Rappel planifié')
-    } else toast.error('Erreur')
+    } else {
+      const d = await res.json().catch(() => ({}))
+      toast.error(d.error || 'Erreur lors de la planification du rappel')
+    }
     setCallbackModal(null); setCallbackDate(''); setCallbackNote(''); setPendingStatus(null)
   }
 
@@ -200,7 +223,10 @@ export default function CRMPage() {
       body: JSON.stringify({ priority }),
     })
     if (res.ok) {
-      setLeads(prev => prev.map(l => l.id === leadId ? { ...l, priority: priority as CRMPriority } : l))
+      await refreshLeadsQuietly()
+    } else {
+      const d = await res.json().catch(() => ({}))
+      toast.error(d.error || 'Erreur lors du changement de priorité')
     }
   }
 
@@ -214,6 +240,9 @@ export default function CRMPage() {
     if (res.ok) {
       setLeads(prev => prev.map(l => l.id === leadId ? { ...l, notes: note } : l))
       toast.success('Note sauvegardée')
+    } else {
+      const d = await res.json().catch(() => ({}))
+      toast.error(d.error || 'Erreur lors de la sauvegarde de la note')
     }
     setSavingNote(null)
   }
@@ -226,19 +255,25 @@ export default function CRMPage() {
       body: JSON.stringify({ status: nextStatus, call_outcome: outcome, call_notes: callNote }),
     })
     if (res.ok) {
-      setLeads(prev => prev.map(l => l.id === callModal.leadId
-        ? { ...l, status: nextStatus, status_changed_at: new Date().toISOString() } : l
-      ))
+      await refreshLeadsQuietly()
       toast.success('Appel enregistré')
+    } else {
+      const d = await res.json().catch(() => ({}))
+      toast.error(d.error || "Erreur lors de l'enregistrement de l'appel")
     }
     setSavingCall(false); setCallModal(null); setCallNote('')
   }
 
   async function deleteLead(leadId: string) {
     if (!confirm('Supprimer ce lead ?')) return
-    await fetch(`/api/crm/leads/${leadId}`, { method: 'DELETE' })
-    setLeads(prev => prev.filter(l => l.id !== leadId))
-    toast.success('Lead supprimé')
+    const res = await fetch(`/api/crm/leads/${leadId}`, { method: 'DELETE' })
+    if (res.ok) {
+      await refreshLeadsQuietly()
+      toast.success('Lead supprimé')
+    } else {
+      const d = await res.json().catch(() => ({}))
+      toast.error(d.error || 'Erreur lors de la suppression')
+    }
   }
 
   async function unlockField(bizId: string, field: string) {
@@ -351,6 +386,42 @@ export default function CRMPage() {
           className="input pl-10 bg-white text-sm" />
       </div>
 
+      {/* Import filters — only shown once at least one lead was imported */}
+      {hasImportedLeads && (
+        <div className="flex flex-wrap items-center gap-2 bg-white border border-[rgba(0,0,0,0.07)] rounded-[14px] p-3">
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wide px-1">Filtres import</span>
+
+          <select value={sourceFilter} onChange={e => setSourceFilter(e.target.value as typeof sourceFilter)}
+            className="text-[12px] border border-[rgba(0,0,0,0.1)] rounded-lg px-2.5 py-1.5 text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-brand-300">
+            <option value="all">Toutes origines</option>
+            <option value="search">🔍 Recherche LeadMaster</option>
+            <option value="import">📁 Données importées</option>
+          </select>
+
+          {availableCountries.length > 0 && (
+            <select value={countryFilter} onChange={e => setCountryFilter(e.target.value)}
+              className="text-[12px] border border-[rgba(0,0,0,0.1)] rounded-lg px-2.5 py-1.5 text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-brand-300">
+              <option value="all">Tous pays</option>
+              {availableCountries.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          )}
+
+          <select value={manufacturerFilter} onChange={e => setManufacturerFilter(e.target.value as typeof manufacturerFilter)}
+            className="text-[12px] border border-[rgba(0,0,0,0.1)] rounded-lg px-2.5 py-1.5 text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-brand-300">
+            <option value="all">Fabricant: Tous</option>
+            <option value="yes">Fabricant: Oui</option>
+            <option value="no">Fabricant: Non</option>
+          </select>
+
+          {(sourceFilter !== 'all' || countryFilter !== 'all' || manufacturerFilter !== 'all') && (
+            <button onClick={() => { setSourceFilter('all'); setCountryFilter('all'); setManufacturerFilter('all') }}
+              className="text-[11px] font-semibold text-slate-400 hover:text-slate-700 transition-colors px-1">
+              Réinitialiser
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Table */}
       <div className="bg-white border border-[rgba(0,0,0,0.07)] rounded-[18px] shadow-card overflow-hidden">
         {loading ? (
@@ -376,6 +447,8 @@ export default function CRMPage() {
                 const biz = lead.business as Record<string, unknown> | null
                 const isExpanded    = expandedId === lead.id
                 const isEditingNote = lead.id in editingNotes
+                const isImported    = (lead as unknown as { source?: string }).source === 'import'
+                const customFields  = (lead as unknown as { custom_fields?: Record<string,string> | null }).custom_fields ?? {}
                 const priority      = (lead as Record<string,unknown>).priority as string ?? 'normal'
                 const priorityCfg   = PRIORITY_CONFIG[priority as keyof typeof PRIORITY_CONFIG] ?? PRIORITY_CONFIG.normal
                 const callbackDate  = (lead as Record<string,unknown>).callback_date as string | null
@@ -407,8 +480,23 @@ export default function CRMPage() {
                           </div>
                         </div>
                         <div>
-                          <p className="font-semibold text-slate-900 text-[13px]">{biz?.name as string ?? '—'}</p>
-                          <p className="text-[11px] text-slate-400">{biz?.sector as string} · {biz?.city as string}</p>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="font-semibold text-slate-900 text-[13px]">{biz?.name as string ?? '—'}</p>
+                            {((lead as unknown as { source?: string }).source === 'import') && (
+                              <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-violet-600 bg-violet-50 border border-violet-100 px-1.5 py-0.5 rounded-pill">
+                                <UploadIcon className="w-2.5 h-2.5" /> Importé
+                              </span>
+                            )}
+                            {(lead as unknown as { is_manufacturer?: boolean | null }).is_manufacturer === true && (
+                              <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-700 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded-pill">
+                                <Factory className="w-2.5 h-2.5" /> Fabricant
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-slate-400">
+                            {biz?.sector as string} · {biz?.city as string}
+                            {biz?.country && biz.country !== 'N/A' && biz.country !== 'Maroc' ? ` · ${biz.country as string}` : ''}
+                          </p>
                         </div>
                         {isExpanded ? <ChevronUp className="w-3.5 h-3.5 text-slate-400 ml-auto shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-400 ml-auto shrink-0" />}
                       </div>
@@ -537,6 +625,7 @@ export default function CRMPage() {
                                   <div className="flex-1 min-w-0">
                                     <p className="text-[10px] text-slate-400 mb-0.5">{label}</p>
                                     {val ? <p className="text-[13px] text-slate-800 break-all">{val as string}</p>
+                                      : isImported ? <p className="text-[11px] text-slate-300 italic">Non renseigné</p>
                                       : <button onClick={() => unlockField(biz?.id as string, field)} disabled={unlocking[`${biz?.id}:${field}`]==='loading'}
                                           className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded-[6px] hover:bg-amber-100 transition-colors disabled:opacity-50">
                                           {unlocking[`${biz?.id}:${field}`]==='loading' ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Lock className="w-2.5 h-2.5" />}
@@ -562,6 +651,7 @@ export default function CRMPage() {
                                   <div className="flex-1 min-w-0">
                                     <p className="text-[10px] text-slate-400 mb-0.5">{label}</p>
                                     {val ? <p className="text-[13px] text-slate-800 break-all">{val as string}</p>
+                                      : isImported ? <p className="text-[11px] text-slate-300 italic">Non renseigné</p>
                                       : <button onClick={() => unlockField(biz?.id as string, field)} disabled={unlocking[`${biz?.id}:${field}`]==='loading'}
                                           className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded-[6px] hover:bg-amber-100 transition-colors disabled:opacity-50">
                                           {unlocking[`${biz?.id}:${field}`]==='loading' ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Lock className="w-2.5 h-2.5" />}
@@ -574,6 +664,7 @@ export default function CRMPage() {
 
                             {/* Direction contacts */}
                             {([{prefix:'dir_daf',emoji:'💰',label:'DAF'},{prefix:'dir_rh',emoji:'👥',label:'DRH'},{prefix:'dir_achat',emoji:'🛒',label:'Dir. Achats'},{prefix:'dir_marketing',emoji:'📣',label:'Marketing'},{prefix:'dir_commercial',emoji:'📈',label:'Commercial'}] as {prefix:string;emoji:string;label:string}[]).map(({prefix,emoji,label}) => {
+                              if (isImported) return null
                               const nom = biz?.[`${prefix}_nom`] as string|null; const email = biz?.[`${prefix}_email`] as string|null
                               if (!nom && !email) return null
                               return (
@@ -607,6 +698,7 @@ export default function CRMPage() {
                                   <div className="flex-1">
                                     <p className="text-[10px] text-slate-400 mb-0.5">{label}</p>
                                     {val ? <p className="text-[13px] text-slate-800">{val as string}</p>
+                                      : isImported ? <p className="text-[11px] text-slate-300 italic">Non renseigné</p>
                                       : <button onClick={() => unlockField(biz?.id as string, field)} disabled={unlocking[`${biz?.id}:${field}`]==='loading'}
                                           className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded-[6px] hover:bg-amber-100 transition-colors disabled:opacity-50">
                                           {unlocking[`${biz?.id}:${field}`]==='loading' ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Lock className="w-2.5 h-2.5" />}
@@ -616,6 +708,23 @@ export default function CRMPage() {
                                 </div>
                               ))}
                             </div>
+
+                            {/* Custom fields from import — anything that didn't map to a named field */}
+                            {isImported && Object.keys(customFields).length > 0 && (
+                              <div className="mb-4">
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                                  <Tag className="w-3.5 h-3.5" /> Champs personnalisés
+                                </p>
+                                <div className="space-y-1.5">
+                                  {Object.entries(customFields).map(([key, value]) => (
+                                    <div key={key} className="flex items-start justify-between gap-2 bg-white border border-[rgba(0,0,0,0.06)] rounded-[8px] px-2.5 py-1.5">
+                                      <span className="text-[10px] text-slate-400 shrink-0">{key}</span>
+                                      <span className="text-[12px] text-slate-700 text-right break-all">{value}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
 
                             {/* Callback note if set */}
                             {lead.callback_note && (

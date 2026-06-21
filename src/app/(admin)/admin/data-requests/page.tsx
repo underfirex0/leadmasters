@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Download, CheckCircle2, XCircle, Loader2, RefreshCw, Clock, FileText, ChevronDown, ChevronUp, User, MessageSquare, AlertCircle } from 'lucide-react'
+import Link from 'next/link'
+import { Download, CheckCircle2, XCircle, Loader2, RefreshCw, Clock, FileText, ChevronDown, ChevronUp, User, MessageSquare, AlertCircle, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -16,6 +17,8 @@ interface Request {
   status: string
   created_at: string
   processed_at: string | null
+  injected_count: number | null
+  injected_at: string | null
   profiles: { id: string; email: string; full_name: string | null; plan_id: string | null }
 }
 
@@ -153,6 +156,9 @@ export default function AdminDataRequestsPage() {
                     <div className="flex items-center gap-2">
                       <p className="text-[13px] font-semibold text-ink-1 truncate">{req.file_name}</p>
                       {req.estimated_rows && <span className="text-[10px] text-ink-4 shrink-0">{req.estimated_rows.toLocaleString('fr-MA')} lignes</span>}
+                      {req.injected_count != null && (
+                        <span className="text-[10px] font-semibold text-emerald-600 shrink-0">· {req.injected_count.toLocaleString('fr-MA')} injecté(s)</span>
+                      )}
                     </div>
                     <div className="flex items-center gap-3 mt-0.5">
                       <span className="text-[11px] text-ink-4 flex items-center gap-1">
@@ -217,6 +223,13 @@ export default function AdminDataRequestsPage() {
 
                     {/* Actions */}
                     <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[rgba(0,0,0,0.05)]">
+                      {/* Primary action: column-map and inject into the client's CRM */}
+                      <Link href={`/admin/data-requests/${req.id}/inject`}
+                        className="flex items-center gap-2 px-4 py-2 bg-brand-600 text-white text-[13px] font-semibold rounded-lg hover:bg-brand-700 transition-colors shadow-sm">
+                        <Sparkles className="w-4 h-4" />
+                        {req.status === 'completed' ? 'Voir / Ré-injecter' : 'Mapper & Injecter'}
+                      </Link>
+
                       {/* Download */}
                       <button onClick={() => downloadFile(req.id, req.file_name)} disabled={downloading[req.id]}
                         className="flex items-center gap-2 px-4 py-2 bg-ink-1 text-white text-[13px] font-semibold rounded-lg hover:bg-ink-2 transition-colors disabled:opacity-60">

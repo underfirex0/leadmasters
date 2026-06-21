@@ -14,18 +14,21 @@ export async function GET(req: Request) {
 
     const { searchParams } = new URL(req.url)
     const status = searchParams.get('status') // optional filter
+    const id     = searchParams.get('id')     // optional: fetch a single request
 
     let query = supabaseAdmin
       .from('data_upload_requests')
       .select(`
         id, file_name, file_path, file_size_bytes, estimated_rows,
         user_notes, admin_notes, status, created_at, updated_at, processed_at,
+        injected_count, injected_at,
         profiles!user_id (id, email, full_name, plan_id)
       `)
       .order('created_at', { ascending: false })
       .limit(100)
 
     if (status) query = query.eq('status', status)
+    if (id)     query = query.eq('id', id)
 
     const { data, error } = await query
     if (error) throw error
