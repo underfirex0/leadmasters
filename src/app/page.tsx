@@ -231,7 +231,7 @@ function Hero() {
               <span className="relative flex h-1.5 w-1.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"/><span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"/>
               </span>
-              <span className="text-[12px] font-semibold text-ink-2">662 entreprises marocaines vérifiées</span>
+              <span className="text-[12px] font-semibold text-ink-2">275 000 entreprises marocaines vérifiées</span>
             </div>
             <h1 ref={headRef} className="font-extrabold text-ink-1 leading-[1.05] mb-6" style={{ fontSize:'clamp(38px,5.5vw,66px)', letterSpacing:'-2.5px' }}>
               Prospectez le Maroc.{' '}
@@ -270,7 +270,7 @@ function Hero() {
         </div>
         <div ref={statsRef} className="grid grid-cols-2 sm:grid-cols-4 gap-6 py-8 border-t border-[rgba(0,0,0,0.06)]">
           {[
-            { count:662, suffix:'',  label:'Entreprises vérifiées'      },
+            { count:275000, suffix:'',  label:'Entreprises vérifiées'      },
             { count:94,  suffix:'%', label:'Avec email professionnel'   },
             { count:95,  suffix:'%', label:'Avec numéro direct'         },
             { count:82,  suffix:'',  label:'Contacts direction DAF/DRH' },
@@ -290,7 +290,7 @@ function Hero() {
 
 // ─── Data Strip ────────────────────────────────────────────
 function DataStrip() {
-  const items = ['662 entreprises marocaines','94% avec e-mail professionnel','95% avec téléphone direct','82 contacts direction DAF · DRH','Sources officielles vérifiées','Zéro double facturation','Export CSV compatible Excel & HubSpot']
+  const items = ['275 000 entreprises marocaines','94% avec e-mail professionnel','95% avec téléphone direct','82 contacts direction DAF · DRH','Sources officielles vérifiées','Zéro double facturation','Export CSV compatible Excel & HubSpot']
   return (
     <div className="bg-brand-600 py-3 overflow-hidden select-none" aria-hidden="true">
       <div className="ticker-track">
